@@ -154,3 +154,4 @@ class CRUDView(web.View):
             except (IntegrityError, UniqueViolationError):
                 raise web.HTTPConflict
             return web.HTTPOk()
+        return web.HTTPForbidden()
