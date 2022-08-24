@@ -1,0 +1,7 @@
+common:
+  host: localhost
+  port: 8080
+postgres:
+  database_url: postgresql+asyncpg://sima:sima@localhost/simaland
+
+
