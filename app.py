@@ -2,12 +2,13 @@ from aiohttp import web
 from settings import config, logger
 from db import pg_context
 from handlers import routes
+from middlewares import middleware_logger
 
 
 @logger.catch()
 async def make_app():
     logger.info("Start make app simaland")
-    app = web.Application(middlewares=[])
+    app = web.Application(middlewares=[middleware_logger])
     app['config'] = config
     logger.info("Config has been added to app")
     app.cleanup_ctx.append(pg_context)

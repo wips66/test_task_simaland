@@ -1,5 +1,4 @@
 import json
-from settings import logger
 from aiohttp import web
 from asyncpg import UniqueViolationError
 from sqlalchemy.exc import IntegrityError
@@ -25,7 +24,6 @@ routes = web.RouteTableDef()
 
 
 # Ideally use the JWT token, but not today
-@logger.catch()
 @routes.view('/login')
 class LoginView(web.View):
     async def post(self):
@@ -55,7 +53,6 @@ class LoginView(web.View):
             return web.HTTPForbidden
 
 
-@logger.catch()
 @routes.view('/logout')
 class LogoutView(web.View):
     async def post(self):
@@ -71,7 +68,6 @@ class LogoutView(web.View):
             return web.HTTPForbidden
 
 
-@logger.catch()
 @routes.view('/user')
 class CRUDView(web.View):
     async def post(self):

@@ -18,7 +18,7 @@ logger.add(sink=error_log_file_path,
            rotation="100 MB",
            format="{time} {level} {message}",
            enqueue=True,
-           level=40,
+           level=5,
            compression="zip")
 
 

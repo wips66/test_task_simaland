@@ -41,7 +41,6 @@ cookie_auth = Table("cookie_auth", metadata,
                     )
 
 
-@logger.catch()
 async def pg_context(app):
     """Init async connecting to DB"""
     conf = app['config']['postgres']
@@ -68,7 +67,6 @@ async def pg_context(app):
 #     pass
 
 
-@logger.catch()
 async def create_user(engine: AsyncEngine, user_data: UserData) -> None:
     """Query for create new user in DB"""
     async with engine.begin() as conn:
@@ -89,7 +87,6 @@ async def create_user(engine: AsyncEngine, user_data: UserData) -> None:
         await conn.execute(user_permissions)
 
 
-@logger.catch()
 async def get_list_users(engine: AsyncEngine) -> list[RowMapping]:
     """Returns a list of all users"""
     async with engine.connect() as conn:
@@ -104,7 +101,6 @@ async def get_list_users(engine: AsyncEngine) -> list[RowMapping]:
         return all_users.mappings().all()
 
 
-@logger.catch()
 async def update_user(engine: AsyncEngine, user_data: UserData):
     """Updating user data"""
     async with engine.begin() as conn:
@@ -125,7 +121,6 @@ async def update_user(engine: AsyncEngine, user_data: UserData):
             await conn.execute(user_permissions)
 
 
-@logger.catch()
 async def delete_user(engine: AsyncEngine, user_id: int) -> None:
     """Deletes the user from all linked tables"""
     async with engine.connect() as conn:
@@ -134,7 +129,6 @@ async def delete_user(engine: AsyncEngine, user_id: int) -> None:
         await conn.commit()
 
 
-@logger.catch()
 async def get_user_data_from_db(engine: AsyncEngine, user_data: UserData) -> RowMapping | None:
     """Returns user data from the database"""
     async with engine.connect() as conn:
@@ -148,7 +142,6 @@ async def get_user_data_from_db(engine: AsyncEngine, user_data: UserData) -> Row
     return result.mappings().fetchone()
 
 
-@logger.catch()
 async def save_token_in_db(engine: AsyncEngine, user_id: int, token: str, token_expire: int) -> None:
     """Deletes an existing token and adds a new one"""
     async with engine.begin() as conn:
@@ -161,7 +154,6 @@ async def save_token_in_db(engine: AsyncEngine, user_id: int, token: str, token_
         await conn.execute(save_token_query)
 
 
-@logger.catch()
 async def delete_token_from_db(engine: AsyncEngine, token: str) -> None:
     """Deletes the user's token from the database"""
     async with engine.connect() as conn:
@@ -170,7 +162,6 @@ async def delete_token_from_db(engine: AsyncEngine, token: str) -> None:
         await conn.commit()
 
 
-@logger.catch()
 async def get_user_token_data_from_db(engine: AsyncEngine, token: str) -> RowMapping | None:
     """Returns user permissions for the specified token"""
     async with engine.connect() as conn:
