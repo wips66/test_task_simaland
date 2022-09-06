@@ -51,22 +51,6 @@ async def pg_context(app):
     logger.info("Connetcting to DB is close")
 
 
-# async def sign_in(engine: AsyncEngine):
-#     pass
-#
-#
-# async def sign_out(engine: AsyncEngine):
-#     pass
-#
-#
-# async def check_authenticate(user_data: UserData) -> bool:
-#     pass
-#
-#
-# async def get_user(engine: AsyncEngine, user_id: int) -> UserData:
-#     pass
-
-
 async def create_user(engine: AsyncEngine, user_data: UserData) -> None:
     """Query for create new user in DB"""
     async with engine.begin() as conn:
@@ -85,6 +69,7 @@ async def create_user(engine: AsyncEngine, user_data: UserData) -> None:
         else:
             user_permissions = permissions.insert().values(user_id=user_id)
         await conn.execute(user_permissions)
+        await conn.commit()
 
 
 async def get_list_users(engine: AsyncEngine) -> list[RowMapping]:
@@ -98,6 +83,7 @@ async def get_list_users(engine: AsyncEngine) -> list[RowMapping]:
                                   permissions.c.blocked,
                                   permissions.c.is_admin]).select_from(users.join(permissions))
         all_users = await conn.execute(all_users_query)
+        await conn.commit()
         return all_users.mappings().all()
 
 
@@ -119,6 +105,7 @@ async def update_user(engine: AsyncEngine, user_data: UserData):
                         is_admin=user_data[
                             'is_admin'])
             await conn.execute(user_permissions)
+        await conn.commit()
 
 
 async def delete_user(engine: AsyncEngine, user_id: int) -> None:
@@ -139,6 +126,7 @@ async def get_user_data_from_db(engine: AsyncEngine, user_data: UserData) -> Row
                                  permissions.c.is_admin]).select_from(users.join(permissions)) \
             .where(users.c.login == user_data['login'])
         result = await conn.execute(get_user_query)
+        await conn.commit()
     return result.mappings().fetchone()
 
 
@@ -152,6 +140,7 @@ async def save_token_in_db(engine: AsyncEngine, user_id: int, token: str, token_
                                                        expire_time=token_expire
                                                        )
         await conn.execute(save_token_query)
+        await conn.commit()
 
 
 async def delete_token_from_db(engine: AsyncEngine, token: str) -> None:
@@ -171,6 +160,7 @@ async def get_user_token_data_from_db(engine: AsyncEngine, token: str) -> RowMap
                                          cookie_auth.c.user_id == permissions.c.user_id)) \
             .where(cookie_auth.c.token == token)
         result = await conn.execute(get_user_query)
+        await conn.commit()
     return result.mappings().fetchone()
 
 

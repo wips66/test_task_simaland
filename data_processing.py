@@ -20,11 +20,8 @@ def gen_hash_password(password: str) -> pbkdf2_hmac:
 
 async def get_user_data_from_request(request: Request) -> UserData:
     """Parsing a user request. Returns query data"""
-    try:
-        user_data = await request.json()
-        is_valid_data = validate_user_data(user_data)
-    except (AttributeError, JSONDecodeError):
-        raise HTTPBadRequest
+    user_data = await request.json()
+    is_valid_data = validate_user_data(user_data)
     if is_valid_data:
         user_data['password'] = gen_hash_password(user_data['password'])
         user_data['birth_date'] = make_correct_date(user_data['birth_date'])
@@ -46,10 +43,7 @@ def validate_user_data(user_data: UserData) -> bool:
 
 def make_correct_date(request_date: str) -> datetime:
     """Returns the date data type from the string"""
-    try:
-        correct_date = datetime.datetime.strptime(request_date, '%Y-%m-%d')
-    except ValueError:
-        raise HTTPBadRequest
+    correct_date = datetime.datetime.strptime(request_date, '%Y-%m-%d')
     return correct_date
 
 
@@ -63,11 +57,8 @@ def fix_datetime_to_str(list_users: list[RowMapping]) -> list[dict]:
 
 async def get_user_id_from_request(request: Request) -> int:
     """Returns the user id from a user request"""
-    try:
-        user_data = await request.json()
-        user_id = user_data['id']
-    except (KeyError, JSONDecodeError):
-        raise HTTPBadRequest
+    user_data = await request.json()
+    user_id = user_data['id']
     return user_id
 
 
@@ -81,11 +72,8 @@ def check_login_password_in_json(data: dict) -> bool:
 
 async def get_user_data(request: Request) -> UserData:
     """Returns user query from request"""
-    try:
-        user_data = await request.json()
-        is_valid_data = check_login_password_in_json(user_data)
-    except (AttributeError, JSONDecodeError):
-        raise HTTPBadRequest
+    user_data = await request.json()
+    is_valid_data = check_login_password_in_json(user_data)
     if is_valid_data:
         user_data['password'] = gen_hash_password(user_data['password'])
         user_data = UserData(**user_data)
@@ -94,7 +82,10 @@ async def get_user_data(request: Request) -> UserData:
 
 def check_permissions(user_data: RowMapping) -> (bool, bool):
     """Returns permissions for a user from the database"""
-    return user_data.get('blocked', True), user_data.get('is_admin', False)
+    if user_data:
+        return user_data.get('blocked', True), user_data.get('is_admin', False)
+    else:
+        return True, False
 
 
 def compare_password(user_pass, user_pass_db):

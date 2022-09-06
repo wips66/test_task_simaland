@@ -1,5 +1,6 @@
 import json
 from aiohttp import web
+from settings import logger
 from asyncpg import UniqueViolationError
 from sqlalchemy.exc import IntegrityError
 from data_processing import get_user_data, \
@@ -35,8 +36,7 @@ class LoginView(web.View):
         if not user_data_db:
             raise web.HTTPForbidden
         is_authenticated = compare_password(user_data['password'], user_data_db['password'])
-        is_blocked, is_admin = check_permissions(user_data_db)
-        if is_authenticated and not is_blocked:
+        if is_authenticated:
             session_token = create_session_token()
             session_token_expires = get_expires_time()
             try:
@@ -50,103 +50,57 @@ class LoginView(web.View):
             request.set_cookie(name='auth_token', value=session_token)
             return request
         else:
-            return web.HTTPForbidden
+            return web.HTTPForbidden()
 
 
 @routes.view('/logout')
 class LogoutView(web.View):
     async def post(self):
         """sign out authentication and authorization"""
-        engine = self.request.app['db']
-        cookies = self.request.cookies
-        if 'auth_token' in cookies.keys():
-            await delete_token_from_db(engine, cookies['auth_token'])
+        if self.request['auth_token']:
+            await delete_token_from_db(engine=self.request.app['db'], token=self.request['auth_token'])
             request = web.HTTPOk()
             request.del_cookie(name='auth_token')
             return request
         else:
-            return web.HTTPForbidden
+            return web.HTTPForbidden()
 
 
 @routes.view('/user')
 class CRUDView(web.View):
     async def post(self):
         """Create method of this app"""
-        engine = self.request.app['db']
-        # check authorized and permission
-        cookies = self.request.cookies
-        auth_token = get_auth_token_from_cookie(cookies)
-
-        try:
-            user_data_db = await get_user_token_data_from_db(engine, auth_token)
-            is_blocked, is_admin = check_permissions(user_data_db)
-        except AttributeError:
-            raise web.HTTPForbidden()
-
-        if not is_blocked and is_admin:
+        if not self.request['is_blocked'] and self.request['is_admin']:
             user_data = await get_user_data_from_request(self.request)
-            try:
-                await create_user(engine, user_data)
-            except (IntegrityError, UniqueViolationError):
-                raise web.HTTPConflict()
+            await create_user(engine=self.request.app['db'], user_data=user_data)
             return web.HTTPOk()
         return web.HTTPForbidden()
 
     async def get(self):
-        """Read method of this app"""
-        engine = self.request.app['db']
-        # check authorized and permission
-        cookies = self.request.cookies
-        auth_token = get_auth_token_from_cookie(cookies)
-
-        try:
-            user_data_db = await get_user_token_data_from_db(engine, auth_token)
-            is_blocked, is_admin = check_permissions(user_data_db)
-        except AttributeError:
-            raise web.HTTPForbidden()
-
-        if not is_blocked:
-            all_users = await get_list_users(engine)
+        """Read method of this app, returns list of all users"""
+        if not self.request['is_blocked']:
+            all_users = await get_list_users(engine=self.request.app['db'])
             all_users = fix_datetime_to_str(all_users)
             all_users_json = json.dumps(all_users)
+            all_users_json.dfgfgs
             return web.json_response(data=all_users_json)
-        return web.HTTPForbidden
+        return web.HTTPForbidden()
 
     async def delete(self):
         """Delete method of this app"""
-        engine = self.request.app['db']
-        # check authorized and permission
-        cookies = self.request.cookies
-        auth_token = get_auth_token_from_cookie(cookies)
-        try:
-            user_data_db = await get_user_token_data_from_db(engine, auth_token)
-            is_blocked, is_admin = check_permissions(user_data_db)
-        except AttributeError:
-            raise web.HTTPForbidden()
-
-        if not is_blocked and is_admin:
+        if not self.request['is_blocked'] and self.request['is_admin']:
             user_id = await get_user_id_from_request(self.request)
-            await delete_user(engine, user_id)
+            await delete_user(engine=self.request.app['db'], user_id=user_id)
             return web.HTTPOk()
         return web.HTTPForbidden()
 
     async def patch(self):
         """Update method of this app"""
-        engine = self.request.app['db']
-        # check authorized and permission
-        cookies = self.request.cookies
-        auth_token = get_auth_token_from_cookie(cookies)
-        try:
-            user_data_db = await get_user_token_data_from_db(engine, auth_token)
-            is_blocked, is_admin = check_permissions(user_data_db)
-        except AttributeError:
-            raise web.HTTPForbidden()
-
-        if not is_blocked and is_admin:
+        if not self.request['is_blocked'] and self.request['is_admin']:
             user_data = await get_user_data_from_request(self.request)
 
             try:
-                await update_user(engine, user_data)
+                await update_user(engine=self.request.app['db'], user_data=user_data)
             except (IntegrityError, UniqueViolationError):
                 raise web.HTTPConflict
             return web.HTTPOk()
