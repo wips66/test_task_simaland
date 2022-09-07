@@ -1,25 +1,20 @@
 import json
 from aiohttp import web
-from settings import logger
-from asyncpg import UniqueViolationError
+from settings import UserList, User
 from sqlalchemy.exc import IntegrityError
 from data_processing import get_user_data, \
     compare_password, \
-    check_permissions, \
     create_session_token, \
     get_expires_time, \
-    get_auth_token_from_cookie, \
     get_user_data_from_request, \
-    fix_datetime_to_str, \
-    get_user_id_from_request
+    get_user_id_from_request, \
+    gen_hash_password
 from db import get_user_data_from_db, \
     save_token_in_db, \
     delete_token_from_db, \
-    get_user_token_data_from_db, \
     create_user, \
     get_list_users, \
-    delete_user, \
-    update_user
+    delete_user, update_user
 
 routes = web.RouteTableDef()
 
@@ -72,6 +67,7 @@ class CRUDView(web.View):
         """Create method of this app"""
         if not self.request['is_blocked'] and self.request['is_admin']:
             user_data = await get_user_data_from_request(self.request)
+            user_data.password = gen_hash_password(user_data.password)
             await create_user(engine=self.request.app['db'], user_data=user_data)
             return web.HTTPOk()
         return web.HTTPForbidden()
@@ -80,10 +76,8 @@ class CRUDView(web.View):
         """Read method of this app, returns list of all users"""
         if not self.request['is_blocked']:
             all_users = await get_list_users(engine=self.request.app['db'])
-            all_users = fix_datetime_to_str(all_users)
-            all_users_json = json.dumps(all_users)
-            all_users_json.dfgfgs
-            return web.json_response(data=all_users_json)
+            all_users = UserList(users=[User.parse_obj(user) for user in all_users])
+            return web.json_response(data=all_users.json(exclude={"users": {'__all__': {"password"}}}))
         return web.HTTPForbidden()
 
     async def delete(self):
@@ -98,10 +92,6 @@ class CRUDView(web.View):
         """Update method of this app"""
         if not self.request['is_blocked'] and self.request['is_admin']:
             user_data = await get_user_data_from_request(self.request)
-
-            try:
-                await update_user(engine=self.request.app['db'], user_data=user_data)
-            except (IntegrityError, UniqueViolationError):
-                raise web.HTTPConflict
+            await update_user(engine=self.request.app['db'], user_data=user_data)
             return web.HTTPOk()
         return web.HTTPForbidden()

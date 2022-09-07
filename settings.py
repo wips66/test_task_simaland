@@ -5,6 +5,7 @@ from loguru import logger
 import yaml
 from enum import Enum
 from typing import TypedDict
+from pydantic import BaseModel
 
 BASE_DIR = pathlib.Path(__file__).parent
 CONFIG_PATH = BASE_DIR / "config" / "config.yaml"
@@ -51,3 +52,18 @@ class UserData(TypedDict):
     birth_date: datetime.datetime
     blocked: bool
     is_admin: bool
+
+
+class User(BaseModel):
+    id: int = None
+    first_name: str
+    last_name: str
+    login: str
+    password: str
+    birth_date: datetime.datetime
+    blocked: bool = True
+    is_admin: bool = False
+
+
+class UserList(BaseModel):
+    users: list[User]

@@ -2,7 +2,7 @@ import asyncio
 import datetime
 from data_processing import gen_hash_password
 from sqlalchemy.engine import RowMapping
-from settings import UserData, config, logger
+from settings import UserData, config, logger, User
 from sqlalchemy import MetaData, Table, String, Integer, Column, DateTime, Boolean, ForeignKey, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 
@@ -51,23 +51,20 @@ async def pg_context(app):
     logger.info("Connetcting to DB is close")
 
 
-async def create_user(engine: AsyncEngine, user_data: UserData) -> None:
+async def create_user(engine: AsyncEngine, user_data: User) -> None:
     """Query for create new user in DB"""
     async with engine.begin() as conn:
-        new_user_query = users.insert().values(first_name=user_data['first_name'],
-                                               last_name=user_data['last_name'],
-                                               login=user_data['login'],
-                                               password=user_data['password'],
-                                               birth_date=user_data['birth_date'],
-                                               ).returning(users.c.id)
+        new_user_query = users.insert().values(user_data.dict(exclude={"id",
+                                                                       "blocked",
+                                                                       "is_admin"
+                                                                       })).returning(users.c.id)
+        print(new_user_query)
         result = await conn.execute(new_user_query)
-        user_id = result.all()[0][0]  # crutch
-        if 'blocked' and 'is_admin' in user_data.keys():
-            user_permissions = permissions.insert().values(user_id=user_id,
-                                                           blocked=user_data['blocked'],
-                                                           is_admin=user_data['is_admin'])
-        else:
-            user_permissions = permissions.insert().values(user_id=user_id)
+        user_data.id = result.all()[0][0]  # crutch
+        user_permissions = permissions.insert().values(user_id=user_data.id,
+                                                       blocked=user_data.blocked,
+                                                       is_admin=user_data.is_admin)
+        print(user_permissions)
         await conn.execute(user_permissions)
         await conn.commit()
 
@@ -79,6 +76,7 @@ async def get_list_users(engine: AsyncEngine) -> list[RowMapping]:
                                   users.c.first_name,
                                   users.c.last_name,
                                   users.c.login,
+                                  users.c.password,
                                   users.c.birth_date,
                                   permissions.c.blocked,
                                   permissions.c.is_admin]).select_from(users.join(permissions))
@@ -87,24 +85,20 @@ async def get_list_users(engine: AsyncEngine) -> list[RowMapping]:
         return all_users.mappings().all()
 
 
-async def update_user(engine: AsyncEngine, user_data: UserData):
+async def update_user(engine: AsyncEngine, user_data: User):
     """Updating user data"""
     async with engine.begin() as conn:
-        update_user_query = users.update().where(users.c.id == user_data['id']).values(
-            first_name=user_data['first_name'],
-            last_name=user_data['last_name'],
-            login=user_data['login'],
-            password=user_data['password'],
-            birth_date=user_data['birth_date'],
-        )
+        update_user_query = users.update().where(
+            users.c.id == user_data.id).values(
+            user_data.dict(exclude={'id',
+                                    'blocked',
+                                    'is_admin'}))
         await conn.execute(update_user_query)
 
-        if 'blocked' and 'is_admin' in user_data.keys():
-            user_permissions = permissions.update().where(permissions.c.user_id == user_data['id']) \
-                .values(blocked=user_data['blocked'],
-                        is_admin=user_data[
-                            'is_admin'])
-            await conn.execute(user_permissions)
+        user_permissions = permissions.update().where(permissions.c.user_id == user_data.id) \
+            .values(user_data.dict(include={'blocked',
+                                            'is_admin'}))
+        await conn.execute(user_permissions)
         await conn.commit()
 
 
@@ -177,6 +171,7 @@ if __name__ == '__main__':
                   'is_admin': True
                   }
 
+
     async def kludge_init_database():
         """wtf!? THIS IS KLUDGE"""
         logger.info("Connect to the database to delete all tables "
@@ -187,5 +182,6 @@ if __name__ == '__main__':
             await conn.run_sync(metadata.create_all)
         user_data = UserData(**admin_data)
         await create_user(engine, user_data)
+
 
     asyncio.run(kludge_init_database())

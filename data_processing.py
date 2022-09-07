@@ -6,7 +6,7 @@ from typing import Mapping
 from aiohttp.web_request import Request
 from aiohttp.web import HTTPBadRequest
 from sqlalchemy.engine import RowMapping
-from settings import HASH_SALT, HASH_NAME, TOKEN_EXPIRES, UserData
+from settings import HASH_SALT, HASH_NAME, TOKEN_EXPIRES, UserData, User
 
 
 def gen_hash_password(password: str) -> pbkdf2_hmac:
@@ -18,41 +18,11 @@ def gen_hash_password(password: str) -> pbkdf2_hmac:
     return hash_password.hex().upper()
 
 
-async def get_user_data_from_request(request: Request) -> UserData:
+async def get_user_data_from_request(request: Request) -> User:
     """Parsing a user request. Returns query data"""
-    user_data = await request.json()
-    is_valid_data = validate_user_data(user_data)
-    if is_valid_data:
-        user_data['password'] = gen_hash_password(user_data['password'])
-        user_data['birth_date'] = make_correct_date(user_data['birth_date'])
-        user_data = UserData(**user_data)
+    user_data = User.parse_raw(await request.text())
+
     return user_data
-
-
-def validate_user_data(user_data: UserData) -> bool:
-    """Stupid (easy) data validation"""
-    if user_data.get('first_name') and \
-            user_data.get('last_name') and \
-            user_data.get('login') and \
-            user_data.get('password') and \
-            user_data.get('birth_date'):
-        return True
-    else:
-        raise HTTPBadRequest(body="JSON is broken")
-
-
-def make_correct_date(request_date: str) -> datetime:
-    """Returns the date data type from the string"""
-    correct_date = datetime.datetime.strptime(request_date, '%Y-%m-%d')
-    return correct_date
-
-
-def fix_datetime_to_str(list_users: list[RowMapping]) -> list[dict]:
-    """Corrects the data type from the database"""
-    list_users = [dict(user_data) for user_data in list_users]
-    for num, user_data in enumerate(list_users):
-        list_users[num]['birth_date'] = str(user_data['birth_date'])
-    return list_users
 
 
 async def get_user_id_from_request(request: Request) -> int:
