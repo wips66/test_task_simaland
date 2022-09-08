@@ -2,10 +2,9 @@ from json import JSONDecodeError
 from aiohttp import web
 from asyncpg import UniqueViolationError
 from sqlalchemy.exc import IntegrityError
-
 from settings import logger
-from to_github.test_task_simaland.data_processing import get_auth_token_from_cookie, check_permissions
-from to_github.test_task_simaland.db import get_user_token_data_from_db
+from data_processing import get_auth_token_from_cookie, check_permissions
+from db import get_user_token_data_from_db
 
 
 @logger.catch(reraise=True)

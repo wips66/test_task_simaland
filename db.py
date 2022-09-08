@@ -2,7 +2,7 @@ import asyncio
 import datetime
 from data_processing import gen_hash_password
 from sqlalchemy.engine import RowMapping
-from settings import UserData, config, logger, User
+from settings import config, logger, User, AuthUser
 from sqlalchemy import MetaData, Table, String, Integer, Column, DateTime, Boolean, ForeignKey, select
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncEngine
 
@@ -110,15 +110,18 @@ async def delete_user(engine: AsyncEngine, user_id: int) -> None:
         await conn.commit()
 
 
-async def get_user_data_from_db(engine: AsyncEngine, user_data: UserData) -> RowMapping | None:
+async def get_user_data_from_db(engine: AsyncEngine, user_data: AuthUser) -> RowMapping | None:
     """Returns user data from the database"""
     async with engine.connect() as conn:
-        get_user_query = select([users.c.id,
+        get_user_query = select([users.c.first_name,
+                                 users.c.last_name,
+                                 users.c.id,
                                  users.c.login,
                                  users.c.password,
+                                 users.c.birth_date,
                                  permissions.c.blocked,
                                  permissions.c.is_admin]).select_from(users.join(permissions)) \
-            .where(users.c.login == user_data['login'])
+            .where(users.c.login == user_data.login)
         result = await conn.execute(get_user_query)
         await conn.commit()
     return result.mappings().fetchone()
@@ -180,8 +183,7 @@ if __name__ == '__main__':
         async with engine.begin() as conn:
             await conn.run_sync(metadata.drop_all)
             await conn.run_sync(metadata.create_all)
-        user_data = UserData(**admin_data)
+        user_data = User.parse_obj(admin_data)
         await create_user(engine, user_data)
-
 
     asyncio.run(kludge_init_database())

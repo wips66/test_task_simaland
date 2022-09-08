@@ -1,8 +1,7 @@
-import json
 from aiohttp import web
 from settings import UserList, User
 from sqlalchemy.exc import IntegrityError
-from data_processing import get_user_data, \
+from data_processing import get_auth_data, \
     compare_password, \
     create_session_token, \
     get_expires_time, \
@@ -25,22 +24,22 @@ class LoginView(web.View):
     async def post(self):
         """entry point authentication and authorization"""
         # check authorized and permission
-        engine = self.request.app['db']
-        user_data = await get_user_data(self.request)
-        user_data_db = await get_user_data_from_db(engine, user_data)
+        user_data = await get_auth_data(self.request)
+        user_data_db = await get_user_data_from_db(engine=self.request.app['db'], user_data=user_data)
         if not user_data_db:
-            raise web.HTTPForbidden
-        is_authenticated = compare_password(user_data['password'], user_data_db['password'])
+            return web.HTTPForbidden()
+        user_data_db = User.parse_obj(user_data_db)
+        is_authenticated = compare_password(user_data.password, user_data_db.password)
         if is_authenticated:
             session_token = create_session_token()
             session_token_expires = get_expires_time()
             try:
-                await save_token_in_db(engine,
-                                       user_id=user_data_db['id'],
+                await save_token_in_db(engine=self.request.app['db'],
+                                       user_id=user_data_db.id,
                                        token=session_token,
                                        token_expire=session_token_expires)
             except IntegrityError:
-                raise web.HTTPConflict
+                return web.HTTPConflict()
             request = web.HTTPOk()
             request.set_cookie(name='auth_token', value=session_token)
             return request

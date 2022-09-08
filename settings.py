@@ -67,3 +67,8 @@ class User(BaseModel):
 
 class UserList(BaseModel):
     users: list[User]
+
+
+class AuthUser(BaseModel):
+    login: str
+    password: str

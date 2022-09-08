@@ -1,12 +1,10 @@
 import datetime
 import uuid
 from hashlib import pbkdf2_hmac
-from json import JSONDecodeError
 from typing import Mapping
 from aiohttp.web_request import Request
-from aiohttp.web import HTTPBadRequest
 from sqlalchemy.engine import RowMapping
-from settings import HASH_SALT, HASH_NAME, TOKEN_EXPIRES, UserData, User
+from settings import HASH_SALT, HASH_NAME, TOKEN_EXPIRES, User, AuthUser
 
 
 def gen_hash_password(password: str) -> pbkdf2_hmac:
@@ -32,21 +30,10 @@ async def get_user_id_from_request(request: Request) -> int:
     return user_id
 
 
-def check_login_password_in_json(data: dict) -> bool:
-    """Stupid (easy) data validation"""
-    if "login" and "password" in data.keys():
-        return True
-    else:
-        raise HTTPBadRequest
-
-
-async def get_user_data(request: Request) -> UserData:
+async def get_auth_data(request: Request) -> AuthUser:
     """Returns user query from request"""
-    user_data = await request.json()
-    is_valid_data = check_login_password_in_json(user_data)
-    if is_valid_data:
-        user_data['password'] = gen_hash_password(user_data['password'])
-        user_data = UserData(**user_data)
+    user_data = AuthUser.parse_raw(await request.text())
+    user_data.password = gen_hash_password(user_data.password)
     return user_data
 
 
